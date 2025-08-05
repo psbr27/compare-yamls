@@ -1,0 +1,16 @@
+{
+  "general_settings": {
+    "list_merge_strategy": "replace",
+    "handle_deletions": "ignore"
+  },
+  "input_output": {
+    "file_v1_path": "file_v1.yml",
+    "file_v2_path": "file_v2.yml",
+    "output_final_path": "file_v2_final.yml",
+    "diff_report_path": "diff.txt"
+  },
+  "diff_report_settings": {
+    "show_unchanged_keys": false,
+    "diff_format": "text"
+  }
+}
