@@ -135,6 +135,110 @@ class ConfigManager:
         """Get the difference report format."""
         return self._config["diff_report_settings"]["diff_format"]
 
+    # Site Configuration Methods
+    def get_cncc_id(self) -> str:
+        """Get the CNCC ID for the site."""
+        return self._config.get("site_configuration", {}).get("cncc_id", "ocslf")
+
+    def get_cluster_domain(self) -> str:
+        """Get the cluster domain."""
+        return self._config.get("site_configuration", {}).get("cluster_domain", "cluster.local")
+
+    def get_docker_registry(self) -> str:
+        """Get the Docker registry."""
+        return self._config.get("site_configuration", {}).get("docker_registry", "occne-repo-host:5000")
+
+    def get_service_account_name(self) -> str:
+        """Get the service account name."""
+        return self._config.get("site_configuration", {}).get("service_account_name", "ocslf-serviceaccount")
+
+    def get_helm_test_service_account_name(self) -> str:
+        """Get the Helm test service account name."""
+        return self._config.get("site_configuration", {}).get("helm_test_service_account_name", "ocslf-serviceaccount")
+
+    # Network Configuration Methods
+    def get_static_ip_addresses(self) -> Dict[str, str]:
+        """Get static IP addresses configuration."""
+        return self._config.get("network_configuration", {}).get("static_ip_addresses", {})
+
+    def get_ports(self) -> Dict[str, int]:
+        """Get port configurations."""
+        return self._config.get("network_configuration", {}).get("ports", {})
+
+    def get_metallb_pool(self) -> str:
+        """Get the MetalLB pool name."""
+        return self._config.get("network_configuration", {}).get("metallb_pool", "default")
+
+    # Database Configuration Methods
+    def get_database_config(self) -> Dict[str, Any]:
+        """Get database configuration."""
+        return self._config.get("database_configuration", {})
+
+    def get_database_names(self) -> Dict[str, str]:
+        """Get database names with site-specific suffixes."""
+        return self._config.get("database_configuration", {}).get("names", {})
+
+    # Custom Labels Methods
+    def get_custom_labels(self) -> Dict[str, str]:
+        """Get custom labels configuration."""
+        return self._config.get("custom_labels", {})
+
+    # Environment Configuration Methods
+    def get_environment_config(self) -> Dict[str, str]:
+        """Get environment configuration."""
+        return self._config.get("environment_configuration", {})
+
+    # Version Management Methods
+    def get_version_management_config(self) -> Dict[str, Any]:
+        """Get version management configuration."""
+        return self._config.get("version_management", {})
+
+    def should_preserve_versions_from_v2(self) -> bool:
+        """Check if versions should be preserved from v2 file."""
+        return self._config.get("version_management", {}).get("preserve_versions_from_v2", True)
+
+    def get_version_patterns_to_skip(self) -> list:
+        """Get version patterns that should be skipped during merge."""
+        return self._config.get("version_management", {}).get("version_patterns_to_skip", [])
+
+    def get_version_mappings(self) -> Dict[str, str]:
+        """Get version mappings for corrections."""
+        return self._config.get("version_management", {}).get("version_mappings", {})
+
+    def get_special_version_mappings(self) -> Dict[str, Dict[str, str]]:
+        """Get special version mappings for specific components."""
+        return self._config.get("version_management", {}).get("special_version_mappings", {})
+
+    # Instance Configuration Methods
+    def get_instance_configurations(self) -> Dict[str, Any]:
+        """Get instance configurations."""
+        return self._config.get("instance_configurations", {})
+
+    # Merge Strategy Methods
+    def get_merge_strategy_config(self) -> Dict[str, bool]:
+        """Get merge strategy configuration."""
+        return self._config.get("merge_strategy", {})
+
+    def should_preserve_v2_versions(self) -> bool:
+        """Check if v2 versions should be preserved."""
+        return self._config.get("merge_strategy", {}).get("preserve_v2_versions", True)
+
+    def should_preserve_site_specific_values(self) -> bool:
+        """Check if site-specific values should be preserved."""
+        return self._config.get("merge_strategy", {}).get("preserve_site_specific_values", True)
+
+    def should_skip_version_fields(self) -> bool:
+        """Check if version fields should be skipped."""
+        return self._config.get("merge_strategy", {}).get("skip_version_fields", True)
+
+    def should_apply_custom_labels(self) -> bool:
+        """Check if custom labels should be applied."""
+        return self._config.get("merge_strategy", {}).get("apply_custom_labels", True)
+
+    def should_apply_environment_config(self) -> bool:
+        """Check if environment configuration should be applied."""
+        return self._config.get("merge_strategy", {}).get("apply_environment_config", True)
+
     def override_setting(self, key_path: str, value: Any) -> None:
         """Override a configuration setting.
 

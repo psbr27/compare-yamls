@@ -12,5 +12,126 @@
   "diff_report_settings": {
     "show_unchanged_keys": false,
     "diff_format": "text"
+  },
+  "site_configuration": {
+    "cncc_id": "ocslf",
+    "cluster_domain": "tailgate.lab.us.oracle.com",
+    "docker_registry": "occne-repo-host:5000",
+    "service_account_name": "ocslf-serviceaccount",
+    "helm_test_service_account_name": "ocslf-serviceaccount"
+  },
+  "network_configuration": {
+    "static_ip_addresses": {
+      "iam": "10.75.192.25",
+      "manager_core": "10.75.192.26"
+    },
+    "ports": {
+      "iam": 8081,
+      "manager_core": 8081,
+      "agent_core": 80
+    },
+    "metallb_pool": "nrfslfpool"
+  },
+  "database_configuration": {
+    "host": "mysql-connectivity-service",
+    "port": "3306",
+    "secret_name": "cncc-db-secret",
+    "names": {
+      "iam": "cnccdb_ocslf",
+      "manager_core": "mcncccommonconfig_ocslf"
+    }
+  },
+  "custom_labels": {
+    "vz.webscale.com/hqpid": "hq-14759",
+    "vz.webscale.com/name": "ocnrfslf",
+    "vz.webscale.com/nf-vendor": "Oracle",
+    "vz.webscale.com/nf-instance": "oc-slf",
+    "vz.webscale.com/nf-type": "5gc-nf",
+    "vz.webscale.com/env": "occLab",
+    "vz.webscale.com/component": "cncc",
+    "vz.webscale.com/part-of": "ocnrfslf",
+    "vz.webscale.com/managed-by": "HELM",
+    "vz.webscale.com/location-clli": "SLF",
+    "vz.webscale.com/location-name": "tailgate"
+  },
+  "environment_configuration": {
+    "env_system_name": "CNCC-OCSLF",
+    "cm_window_name": "CNCC-OCSLF"
+  },
+  "version_management": {
+    "preserve_versions_from_v2": true,
+    "version_patterns_to_skip": [
+      "tag",
+      "version", 
+      "envNFVersion"
+    ],
+    "version_mappings": {
+      "25.1.100": "25.1.200",
+      "25.1.101": "25.1.201"
+    },
+    "special_version_mappings": {
+      "ocdebug-tools": {
+        "25.1.101": "25.1.202"
+      },
+      "apigw": {
+        "25.1.101": "25.1.203"
+      },
+      "initcontainers": {
+        "25.1.101": "25.1.203"
+      }
+    }
+  },
+  "instance_configurations": {
+    "prometheus": {
+      "id": "ocslf-prometheus",
+      "type": "CS",
+      "owner": "ocslf",
+      "fqdn": "ocoso-prom-svr.ocnrfslf.svc.tailgate.lab.us.oracle.com",
+      "port": 80,
+      "api_prefix": "/prometheus"
+    },
+    "alertmanager": {
+      "id": "ocslf-alertmanager", 
+      "type": "CS",
+      "owner": "ocslf",
+      "fqdn": "ocoso-prom-alm.ocnrfslf.svc.tailgate.lab.us.oracle.com",
+      "port": 80,
+      "api_prefix": "/alertmanager"
+    },
+    "udr_prov": {
+      "id": "ocslf-SLF",
+      "type": "UDR-PROV",
+      "owner": "ocslf", 
+      "fqdn": "ocslf-ingressgateway-prov.ocnrfslf.svc.tailgate.lab.us.oracle.com",
+      "port": 81
+    },
+    "udr_config": {
+      "id": "ocslf-SLF",
+      "type": "UDR-CONFIG",
+      "owner": "ocslf",
+      "fqdn": "ocslf-nudr-config.ocnrfslf.svc.tailgate.lab.us.oracle.com", 
+      "port": 5001
+    },
+    "dbtier": {
+      "id": "ocslf-SLF",
+      "type": "DBTIER",
+      "owner": "ocslf",
+      "fqdn": "occndbtier-db-monitor-svc.ocnrfslf.svc.tailgate.lab.us.oracle.com",
+      "port": 8080
+    },
+    "provgw": {
+      "id": "ocslf-provgw",
+      "type": "PROVGW", 
+      "owner": "ocslf",
+      "fqdn": "provgw-provgw-config.ocnrfslf.svc.tailgate.lab.us.oracle.com",
+      "port": 5001
+    }
+  },
+  "merge_strategy": {
+    "preserve_v2_versions": true,
+    "preserve_site_specific_values": true,
+    "skip_version_fields": true,
+    "apply_custom_labels": true,
+    "apply_environment_config": true
   }
 }

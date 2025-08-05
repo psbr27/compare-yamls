@@ -1,0 +1,1344 @@
+#########################################################
+#            Section Start: global attributes           #
+#########################################################
+global:
+
+  # ********  Sub-Section Start: Common Global Parameters ********
+  #***************************************************************
+
+  # User needs to set imageRepository to the repository where the images are kept
+  dockerRegistry: cgbu-occncc-dev-docker.dockerhub-phx.oci.oraclecorp.com
+  
+  # Update as per deployment cluster's DNS domain
+  # You can identify cluster domain using following command
+  # kubectl -n kube-system get configmap kubeadm-config -o yaml | grep -i dnsDomain
+  # Ex: cluster.local
+  clusterDomain: &clusterDomain ""
+  
+  serviceAccountName: &serviceAccountName ""
+
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+      
+    lbServices:
+      labels: {}
+      annotations: {}
+      # The annotation metallb.universe.tf/address-pool: signaling/oam is required if MetalLB in CNE 1.8.x onwards is used
+      # metallb.universe.tf/address-pool: oam
+      # service.beta.kubernetes.io/oci-load-balancer-internal: "true"
+      # The annotation oracle.com.cnc/app-protocols: '{"http-tls":"TCP"}' is required in global section if CNCC Manager & Agent Core is deployed with HTTPs enabled in CNE.
+      # oracle.com.cnc/app-protocols: '{"http-tls":"TCP"}'
+      
+    lbDeployments:
+      labels: {}
+      annotations: {}
+      #  oracle.com/cnc: "true"
+      
+    nonlbStatefulSets:
+      labels: {}
+      annotations: {}
+      #  sidecar.istio.io/rewriteAppHTTPProbers: "true"
+      #  oracle.com.cnc/egress-network: oam
+      
+    nonlbServices:
+      labels: {}
+      annotations: {}
+
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+
+  # Custom service account for Helm test execution
+  helmTestServiceAccountName: &helmTestServiceAccountName ""
+  # Helm test related configurations
+  test:
+    nfName: cncc
+    image:
+      name: occncc/nf_test
+      tag: 25.1.201
+      imagePullPolicy: IfNotPresent 
+    config:
+      logLevel: INFO
+      timeout: 240 #Beyond this duration helm test will be considered failure
+    resources:
+    - horizontalpodautoscalers/v1
+    - deployments/v1
+    - configmaps/v1
+    - prometheusrules/v1
+    - serviceaccounts/v1
+    - poddisruptionbudgets/v1
+    - roles/v1
+    - statefulsets/v1
+    - persistentvolumeclaims/v1
+    - services/v1
+    - rolebindings/v1
+    complianceEnable: true
+
+  # Values to be configured based on Ephemeral Storage requirement
+  ephemeralStorage:
+    limits:
+      containersLogStorage: &containersLogStorageLimitsRef 1000
+      containersCrictlStorage: &containersCrictlStorageLimitsRef 2
+    requests:
+      containersLogStorage: &containersLogStorageRequestsRef 50
+      containersCrictlStorage: &containersCrictlStorageRequestsRef 2
+  tlsVersion: &tlsVersion TLSv1.2,TLSv1.3
+  cipherSuites: &cipherSuites
+    - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+    - TLS_AES_256_GCM_SHA384
+    - TLS_AES_128_GCM_SHA256
+    - TLS_CHACHA20_POLY1305_SHA256
+
+  #comma-separated-values To disable extension being sent in ClientHello
+  #To deploy CNC Console on a system with an older Kubernetes/Go version (e.g., v1.23.10/go1.17.13),
+  #remove ec_point_formats from clientDisabledExtensions and serverDisabledExtensions to prevent deployment failure
+  clientDisabledExtension: &clientDisabledExtension session_ticket,status_request,status_request_v2,psk_key_exchange_modes,pre_shared_key,early_data,certificate_authorities,ec_point_formats
+  #comma-separated-values To disable extension being sent from server originated messages
+  serverDisabledExtension: &serverDisabledExtension session_ticket,status_request,status_request_v2,psk_key_exchange_modes,pre_shared_key,early_data,ec_point_formats
+  #comma-separated-values to allow the supported_groups extension values
+  tlsNamedGroups:  &tlsNamedGroups secp521r1,secp384r1,secp256r1,x448,x25519
+  #comma-separated-values to allow the signature_algorithms extension values
+  clientSignatureSchemes: &clientSignatureSchemes ecdsa_secp521r1_sha512,ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,ed448,ed25519,rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256
+
+  # Resource allocation for Helm test and IAM hook
+  hookJobResources:
+    limits:
+      cpu: 2
+      memory: 2Gi
+      # Values will be taken from global section, no updates needed.
+      logStorage: *containersLogStorageLimitsRef
+      crictlStorage: *containersCrictlStorageLimitsRef
+    requests:
+      cpu: 2
+      memory: 2Gi
+      # Values will be taken from global section, no updates needed.
+      logStorage: *containersLogStorageRequestsRef
+      crictlStorage: *containersCrictlStorageRequestsRef
+
+  # Container naming
+  k8sResource:
+    container:
+      prefix: ""
+      suffix: ""
+
+  # Supported k8s manifest versions
+  k8sResources:
+    pdb:
+      supportedVersions:
+      - policy/v1
+
+  # Security Context available for all pods/container in cncc except ingress gateway
+  enablePodSecurityContext: &enablePodSecurityContext true
+  podSecurityContext:
+    runAsNonRoot: &runAsNonRootPod true
+    runAsUser: &runAsUserPod 1006
+
+  enableContainerSecurityContext: &enableContainerSecurityContext true
+  containerSecurityContext:
+    readOnlyRootFilesystem: &readOnlyRootFilesystem true
+    allowPrivilegeEscalation: &allowPrivilegeEscalation false
+    runAsNonRoot: &runAsNonRootContainer true
+    privileged: &privileged false
+    runAsUser: &runAsUser 1006
+    capabilities: &capabilities
+      drop:
+        - "ALL"
+
+  # Allowed Values: DISABLED, ENABLED
+  # Preference is to set  "resources" request and limit to same values to avoid HPA issues.
+  extraContainers: DISABLED
+  debugToolContainerMemoryLimit: 4Gi
+  extraContainersVolumesTpl: |
+    - name: debug-tools-dir
+      emptyDir:
+        medium: Memory
+        sizeLimit: {{ .Values.global.debugToolContainerMemoryLimit | quote }}
+  extraContainersTpl: |
+    - command:
+        - /bin/sleep
+        - infinity
+      image: {{ .Values.global.dockerRegistry }}/occncc/ocdebug-tools:25.1.202
+      imagePullPolicy: IfNotPresent
+      name: {{ printf "%s-tools-%s" (include "getprefix" .) (include "getsuffix" .) | trunc 63 | trimPrefix "-" | trimSuffix "-"  }}
+      resources:
+        limits:
+          ephemeral-storage: "512Mi"
+          cpu: "0.5"
+          memory: {{ .Values.global.debugToolContainerMemoryLimit | quote }}
+        requests:
+          ephemeral-storage: "512Mi"
+          cpu: "0.5"
+          memory: {{ .Values.global.debugToolContainerMemoryLimit | quote }}
+      securityContext:
+        allowPrivilegeEscalation: true
+        capabilities:
+          drop:
+          - ALL
+          add:
+          - NET_RAW
+          - NET_ADMIN
+        runAsUser: 7000
+      volumeMounts:
+      - mountPath: /tmp/tools
+        name: debug-tools-dir 
+
+  # Mandatory: This parameter must be set to "true" when CNCC is deployed with the Service Mesh
+  serviceMeshCheck: false
+  # If Service Mesh is deployed with TLS/MTLS disabled then set this flag to false
+  serviceMeshHttpsEnabled: true
+  # Mandatrory: needs to be set with correct url format http://127.0.0.1:<istio management port>/quitquitquit" if CNCC is deployed with the Service Mesh.
+  istioSidecarQuitUrl: "http://127.0.0.1:15000/quitquitquit"
+  # Mandatrory: needs to be set with correct url format http://127.0.0.1:<istio management port>/ready" if CNCC is deployed with the Service Mesh.
+  istioSidecarReadyUrl: "http://127.0.0.1:15000/ready"
+  
+  # DB Details
+  dbHost: &mySqlHostRef ""
+  dbPort: &mySqlPortRef ""
+  secretName: &mySqlSecretNameRef cncc-db-secret
+
+  # Dual Stack Support
+  # Possible values : IPv4, IPv6, IPv4_IPv6,IPv6_IPv4,ClusterPreferred
+  cnccDeploymentMode: &cnccDeploymentMode ClusterPreferred
+
+  # Use ClusterIP for LoadBalancer(LB) services. 
+  # The LB services are assigned LoadBalancer service type in k8s service definition. Set this flag to true to assign ClusterIP service type.
+  useClusterIpForLbServices: false
+
+  # Enables Instance Level Access Control feature
+  instanceLevelAuthorizationEnabled: false
+
+  # Password policy for non-OCI IAM admin users
+  enableDefaultAdminPasswordPolicy: false
+  
+  # Indicates if deployment is multiCluster or not. By default flag is set to false indicating Single cluster deployment
+  isMultiClusterDeployment: false
+
+  # For Single/Multi cluster deployment,
+  #   - either of the IAMs has to be enabled.
+  #   - both IAMs cannot be enabled/disabled.
+  # For Agent only, 
+  #   - IAMs are disabled.
+  # Enable OCI IAM for Identity Access Management when deployment is on OCI.
+  oci-iam:
+    enabled: false
+    # OCI IAM Admin Secrets applicable for OCI flow
+    existingSecret: oci-iam-secret
+    existingAdminUserSecret: oci-iam-admin-secret
+  # Enable CNCC IAM for Identity Access Management when deployment is on non-OCI
+  cncc-iam:
+    enabled: true
+  mcncc-core:
+    enabled: true
+  acncc-core:
+    enabled: true
+  
+  # Automatic route generation for CNCC Manager & Agent Deployment
+  self:
+    cnccId: 
+  mCnccIams: []
+  mCnccCores: []
+  aCnccs: []
+  instances: []
+
+  # Applicable only for Manager and Agent core. Used for Multi-Instance-Multi-Cluster Configuration Validation
+  validationHook:
+    image:
+      name: occncc/cncc-core/validationhook
+      tag: 25.1.200
+      imagePullPolicy: IfNotPresent
+    config:
+      logLevel:
+        root: INFO
+    enableContainerSecurityContext: *enableContainerSecurityContext
+    containerSecurityContext:
+      readOnlyRootFilesystem: *readOnlyRootFilesystem
+      allowPrivilegeEscalation: *allowPrivilegeEscalation
+      runAsNonRoot: *runAsNonRootContainer
+      privileged: *privileged
+      runAsUser: *runAsUser
+      capabilities: *capabilities
+
+  # CMService service port. Applicable only for Manager and Agent core
+  cmServiceHttpPort: &svcCmServiceHttp 8442
+  
+  # Flag for Auto-creation of resources and is disabled by default. 
+  #  - For now the resources include ServiceAccount configuration
+  #
+  autoCreateResources:
+    enabled: false
+
+    serviceAccounts:
+      create: true   # This internal flag controls whether ServiceAccounts should be created automatically.
+      accounts:
+        - serviceAccountName: *serviceAccountName                # Name of CNCC ServiceAccount.
+          type: CNCC                                             # Type determines RBAC rules to be constructed in the template
+          
+        - serviceAccountName: *helmTestServiceAccountName        # Name of Helm test ServiceAccount.
+          type: HELM_TEST                                        # Type determines RBAC rules to be constructed in the template
+
+  # ********  Sub-Section End: Common Global Parameters ********
+  #*************************************************************
+
+  # ********  Sub-Section Start: CNCConsole-IAM Global Parameters ********
+  #************************************************************************  
+
+  # Username for the initial CNCConsole-IAM admin user
+  iamUserName: &iamUserName admin
+  
+  # ********  Sub-Section End: CNCConsole-IAM Global Parameters ***********
+  #************************************************************************
+
+  # ********  Sub-Section Start: Ingress Gateway Global Parameters ********
+  #************************************************************************
+    
+  # Enable or disable IP Address allocation from Metallb Pool
+  metalLbIpAllocationEnabled: true
+   
+  # Address Pool Annotation for Metallb
+  metalLbIpAllocationAnnotation: "metallb.universe.tf/address-pool: oam"
+
+  #nodeSelector:
+  #  nodeKey: kubernetes.io/hostname
+  #  nodeValue: master
+  nodeSelector:
+    nodeKey: ""
+    nodeValue: ""
+
+  # Ephemeral storage configuration for log storage, Values will be taken from global section, no updates needed
+  logStorage: *containersLogStorageRequestsRef
+  # Ephemeral storage configuration for crictl storage, Values will be taken from global section, no updates needed
+  crictlStorage: *containersCrictlStorageRequestsRef
+  # Ephemeral Storage Limit Configuration
+  ephemeralStorageLimit: 1024
+# ********  Sub-Section End: Ingress Gateway Global Parameters ********
+#**********************************************************************
+#########################################################
+#            Section End  : global attributes           #
+#########################################################
+
+##############################################################
+#            Section Start  : cncc iam attributes            #
+##############################################################
+cncc-iam:
+  global:
+    # Keycloak (kc) serivce port
+    iamServiceHttpPort: &iamServiceHttpPort 8285
+    
+    # IAM Hook configurations. Used for CNCC IAM table Creation
+    hook:
+      image:
+        name: occncc/cncc-iam/hook
+        tag: 25.1.200
+        imagePullPolicy: IfNotPresent
+      enableContainerSecurityContext: *enableContainerSecurityContext
+      containerSecurityContext:
+        readOnlyRootFilesystem: false
+        allowPrivilegeEscalation: *allowPrivilegeEscalation
+        runAsNonRoot: *runAsNonRootContainer
+        privileged: *privileged
+        runAsUser: *runAsUser
+        capabilities: *capabilities
+      config:
+        logLevel:
+          root: INFO
+    
+    # If https is enabled, this Port would be HTTP/1.0 Port (unsecured)
+    # If https is disabled, this Port would be HTTPS/1.0 Port (secured SSL)
+    publicHttpSignalingPort: 80
+    publicHttpsSignalingPort: 443
+      
+    # If Static load balancer IP needs to be set, then set staticIpAddressEnabled flag to true and provide value for staticIpAddress
+    # Else random IP will be assigned by the metalLB from its IP Pool
+    staticIpAddressEnabled: false
+    staticIpAddress: ""
+    
+    dbName: &iamMySqlDbRef cnccdb
+  
+    # CNCC https enabled
+    httpsEnabled: &iamHttpsEnabled false
+    # Server Configuration for http and https support
+    enableIncomingHttp: &iamEnableIncomingHttp true
+    enableIncomingHttps: &iamEnableIncomingHttps false
+  
+    ingressGwCertReloadEnabled: &iamIGwCertReloadEnabled false
+
+  kc:
+    global:
+      # Possible values : IPv4, IPv6, IPv4_IPv6,IPv6_IPv4,ClusterPreferred
+      deploymentMode: *cnccDeploymentMode
+
+    # Option to set kc log level
+    log:
+      level: WARN,org.keycloak.events:DEBUG
+
+    enablePodSecurityContext: *enablePodSecurityContext
+    podSecurityContext:
+      runAsNonRoot: *runAsNonRootPod
+      runAsUser: 1000
+
+    ldaps:
+      enabled: false
+      initContainersImage:
+        # Init Containers image name
+        name: occncc/apigw-configurationinit
+        # Tag name of init Container image
+        tag: 25.1.203
+        # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+        pullPolicy: IfNotPresent
+      
+      service:
+        # Labels and Annotations that are specific to service are added here.
+        customExtension:
+          labels: {}
+          annotations: {}
+          
+        ssl:
+          tlsVersion: *tlsVersion
+          cipherSuites: *cipherSuites
+
+          clientDisabledExtension: *clientDisabledExtension
+          tlsNamedGroups: *tlsNamedGroups
+          clientSignatureSchemes: *clientSignatureSchemes
+          caBundle:
+            k8SecretName: cncc-iam-kc-root-ca
+            k8NameSpace: cncc
+            fileName: caroot.cer
+    
+          trustStorePassword:
+            k8SecretName: cncc-iam-kc-root-ca
+            k8NameSpace: cncc
+            fileName: ssl_truststore.txt
+    
+          initialAlgorithm: RS256
+    
+      # Resource details
+      resources:
+        limits:
+          initServiceCpu: 1
+          initServiceMemory: 1Gi
+        requests:
+          initServiceCpu: 1
+          initServiceMemory: 1Gi
+          
+      ports:
+        # ContainerPort represents a network port in a single container
+        containerPort: 8086
+      
+      logLevel: 
+        initContainer: INFO
+  
+    # Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+    extraContainers: USE_GLOBAL_VALUE
+    
+    healthcheck:
+      image:
+        name: occncc/cncc-iam/healthcheck
+        tag: 25.1.200
+        pullPolicy: IfNotPresent
+
+      enableContainerSecurityContext: *enableContainerSecurityContext
+      containerSecurityContext:
+        readOnlyRootFilesystem: false
+        allowPrivilegeEscalation: *allowPrivilegeEscalation
+        runAsNonRoot: *runAsNonRootContainer
+        privileged: *privileged
+        runAsUser: *runAsUser
+        capabilities: *capabilities
+      logLevel: 
+        root: INFO
+      resources:
+        limits:
+          cpu: 0.5
+          memory: 0.5Gi
+        # Values to be configured based on Ephemeral Storage requirement, Values will be taken from global section, no updates needed.
+          logStorage: *containersLogStorageLimitsRef
+          crictlStorage: *containersCrictlStorageLimitsRef
+        requests:
+          cpu: 0.5
+          memory: 0.5Gi
+          # Values to be configured based on Ephemeral Storage requirement, Values will be taken from global section, no updates needed.
+          logStorage: *containersLogStorageRequestsRef
+          crictlStorage: *containersCrictlStorageRequestsRef
+    
+    service:
+      # Labels and Annotations that are specific to service IAM are added here.
+      customExtension:
+        labels: {}
+        annotations: {}
+  
+    keycloak:
+      # The Keycloak image details
+      image:
+        # The Keycloak image name
+        name: occncc/cncc-iam
+        # Overrides the Keycloak image tag whose default is the chart version
+        tag: 25.1.200
+        # The Keycloak image pull policy
+        pullPolicy: IfNotPresent
+
+      enableContainerSecurityContext: *enableContainerSecurityContext
+      containerSecurityContext:
+        readOnlyRootFilesystem: false
+        allowPrivilegeEscalation: *allowPrivilegeEscalation
+        runAsNonRoot: *runAsNonRootContainer
+        privileged: *privileged
+        runAsUser: 1000
+        capabilities: *capabilities
+
+      serviceAccount:
+        # The name of the service account to use.
+        name: *serviceAccountName
+  
+      # Username for the initial CNCConsole-IAM admin user
+      username: *iamUserName
+      
+      # Specifies an existing secret to be used for the admin password
+      existingSecret: cncc-iam-secret
+      
+      # The key in the existing secret that stores the password
+      existingSecretKey: iamAdminPasswordKey
+       
+      # Pod Annotation for cncc-iam-kc 
+      podAnnotations: {}
+        #k8s.v1.cni.cncf.io/networks: ""
+  
+      service:
+        # The http Service port
+        httpPort: *iamServiceHttpPort
+      
+      # Pod resource requests and limits 
+      resources: 
+        limits:
+          cpu: 2
+          memory: 2Gi
+        # Values to be configured based on Ephemeral Storage requirement, Values will be taken from global section, no updates needed.
+          logStorage: *containersLogStorageLimitsRef
+          crictlStorage: *containersCrictlStorageLimitsRef
+        requests:
+          cpu: 2
+          memory: 2Gi
+        # Values to be configured based on Ephemeral Storage requirement, Values will be taken from global section, no updates needed.
+          logStorage: *containersLogStorageRequestsRef
+          crictlStorage: *containersCrictlStorageRequestsRef
+  
+      ## Persistence configuration
+      persistence:
+        # The database vendor. Can be either "mysql" or "h2"
+        dbVendor: mysql
+    
+        ## The database name, host and port
+        ## If dbVendor is 'mysql", then database should be created in mysql prior to installing cncn-iam
+        dbName: *iamMySqlDbRef
+        dbHost: *mySqlHostRef
+        dbPort: *mySqlPortRef
+    
+        ## Database Credentials are loaded from a Secret residing in the same Namespace as keycloak.
+        ## The Chart can read credentials from an existing Secret OR it can provision its own Secret.
+    
+        ## Specify existing Secret
+        # If set, specifies the Name of an existing Secret to read db credentials from.
+        existingSecret: *mySqlSecretNameRef
+        existingSecretPasswordKey: dbPasswordKey  # read keycloak db password from existingSecret under this Key
+        existingSecretUsernameKey: dbUserNameKey  # read keycloak db user from existingSecret under this Key  
+
+      nodeSelector:
+        nodeKey: ""
+        nodeValue: ""
+  
+  #########################################################
+  #            Section End  : IAM attributes              #
+  #########################################################
+  
+  
+  ##########################################################
+  #            Section Start  : Ingress Gateway attributes #
+  ##########################################################
+  ingress-gateway:
+    global:
+      # Possible values : IPv4, IPv6, IPv4_IPv6,IPv6_IPv4,ClusterPreferred
+      deploymentMode: *cnccDeploymentMode
+
+    # Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+    extraContainers: USE_GLOBAL_VALUE
+    
+    # Metrics Instance Identifier to uniquely identify CNCC IAM.
+    prefix: 'iam'
+  
+    image:
+      # Image name
+      name: occncc/cncc-apigateway
+      # tag name of image
+      tag: 25.1.203
+      # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+      pullPolicy: IfNotPresent
+    
+    initContainersImage:
+      # Init Containers image name
+      name: occncc/apigw-configurationinit
+      # Tag name of init Container image
+      tag: 25.1.203
+      # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+      pullPolicy: IfNotPresent
+
+    clientDisabledExtension: *clientDisabledExtension
+    serverDisabledExtension: *serverDisabledExtension
+    tlsNamedGroups: *tlsNamedGroups
+    clientSignatureSchemes: *clientSignatureSchemes
+
+    service:
+      ssl:
+        tlsVersion: *tlsVersion
+        
+        privateKey:
+          k8SecretName: cncc-iam-ingress-secret
+          k8NameSpace: cncc
+          rsa:
+            fileName: rsa_private_key_pkcs1.pem
+          ecdsa:
+            fileName: ssl_ecdsa_private_key.pem
+    
+        certificate:
+          k8SecretName: cncc-iam-ingress-secret
+          k8NameSpace: cncc
+          rsa:
+            fileName: ssl_rsa_certificate.crt
+          ecdsa:
+            fileName: ssl_ecdsa_certificate.crt
+    
+        caBundle:
+          k8SecretName: cncc-iam-ingress-secret
+          k8NameSpace: cncc
+          fileName: caroot.cer
+    
+        keyStorePassword:
+          k8SecretName: cncc-iam-ingress-secret
+          k8NameSpace: cncc
+          fileName: ssl_keystore.txt
+    
+        trustStorePassword:
+          k8SecretName: cncc-iam-ingress-secret
+          k8NameSpace: cncc
+          fileName: ssl_truststore.txt
+    
+        initialAlgorithm: RS256
+    
+      # Labels and Annotations that are specific to service ingressgateway are added here.
+      customExtension:
+        labels: {}
+        annotations: {}
+        # This annotation metallb.universe.tf/loadBalancerIPs: IP1,IP2 is required to assign static IPs for service with
+        # comma separated values, applicable for Dual stack support RequireDualStack IP Family policy
+        # metallb.universe.tf/loadBalancerIPs: ""
+    
+    # Labels and Annotations that are specific to deployment ingressgateway are added here.
+    deployment:
+      customExtension:
+        labels: {}
+        annotations: {}
+          #k8s.v1.cni.cncf.io/networks: ""
+          #oracle.com.cnc/cnlb: '[{"backendPortName": "cncc-iam-port", "cnlbIp": "","cnlbPort": ""}]'
+
+
+    ports:
+      # ContainerPort represents a network port in a single container
+      containerPort: 8081
+      containerPortName: cncc-iam-port
+      containersslPort: 8443
+      containersslPortName: cncc-iam-port
+      actuatorPort: 9090
+    
+    # Set the root log level
+    log:
+      level: 
+        root: WARN
+        ingress: INFO
+        cncc:
+          root: WARN
+          security: INFO
+    
+    readinessProbe:
+      # Tells the kubelet that it should wait second before performing the first probe
+      initialDelaySeconds: 30
+      # Number of seconds after which the probe times out
+      timeoutSeconds: 5
+      # specifies that the kubelet should perform a liveness probe every xx seconds
+      periodSeconds: 10
+      # Minimum consecutive successes for the probe to be considered successful after having failed
+      successThreshold: 1
+      # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+      failureThreshold: 3
+      
+    livenessProbe:
+      # Tells the kubelet that it should wait second before performing the first probe
+      initialDelaySeconds: 30
+      # Number of seconds after which the probe times out
+      timeoutSeconds: 5
+      # specifies that the kubelet should perform a liveness probe every xx seconds
+      periodSeconds: 15
+      # Minimum consecutive successes for the probe to be considered successful after having failed
+      successThreshold: 1
+      # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+      failureThreshold: 3
+    
+    # Resource details
+    resources:
+      limits:
+        cpu: 2
+        initServiceCpu: 1
+        memory: 2Gi
+        initServiceMemory: 1Gi
+      requests:
+        cpu: 2
+        initServiceCpu: 1
+        memory: 2Gi
+        initServiceMemory: 1Gi
+      target:
+        averageCpuUtil: 80
+
+    cipherSuites: *cipherSuites
+
+
+    # To Initialize SSL related infrastructure in init/update container
+    initssl: *iamHttpsEnabled
+    # Server Configuration for http and https support
+    enableIncomingHttp: *iamEnableIncomingHttp
+    enableIncomingHttps: *iamEnableIncomingHttps
+    
+    ingressGwCertReloadEnabled: *iamIGwCertReloadEnabled
+    nodeSelector:
+      nodeKey: ""
+      nodeValue: ""
+
+    # Pod SecurityContext
+    enablePodSecurityContext: *enablePodSecurityContext
+    podSecurityContext:
+      runAsNonRoot: *runAsNonRootPod
+      runAsUser: 10001
+
+    #security context for containers
+    securityContext:
+      enable: *enableContainerSecurityContext
+
+    containerSecurityContext:
+      # make readOnlyRootFilesystem parameter false if environment needs more than readonly access
+      readOnlyRootFilesystem: *readOnlyRootFilesystem
+      allowPrivilegeEscalation: *allowPrivilegeEscalation
+      runAsNonRoot: *runAsNonRootContainer
+      privileged: *privileged
+      runAsUser: 10001
+      capabilities: *capabilities
+
+    # Update as per deployment cluster's DNS domain
+    # You can identify cluster domain using following command
+    # kubectl -n kube-system get configmap kubeadm-config -o yaml | grep -i dnsDomain
+    # Ex: 'cluster.local'
+    clusterDomain: *clusterDomain
+  
+    # CNCC configuration
+    cncc:
+      # Enable security logs
+      securityLogEnabled: true
+      iam:
+        # This should be same as kc.keycloak.service.httpPort
+        port: *iamServiceHttpPort
+  #########################################################
+  ##            Section End  : Ingress Gateway attributes  #
+  ##########################################################
+
+############################################################
+#            Section End  : cncc iam attributes            #
+############################################################
+
+#######################################################################
+#            Section Start  : manager cncc core attributes            #
+#######################################################################
+mcncc-core:
+  global:
+    # If https is enabled, this Port would be HTTP/1.0 Port (unsecured)
+    # If https is disabled, this Port would be HTTPS/1.0 Port (secured SSL)
+    publicHttpSignalingPort: 80
+    publicHttpsSignalingPort: 443
+      
+    # If Static load balancer IP needs to be set, then set staticIpAddressEnabled flag to true and provide value for staticIpAddress
+    # Else random IP will be assigned by the metalLB from its IP Pool
+    staticIpAddressEnabled: false
+    staticIpAddress: ""
+    
+    dbName: &mcoreMySqlDbRef mcncccommonconfig
+    
+    # CNCC https enabled
+    httpsEnabled: &mcoreHttpsEnabled false
+    # Server Configuration for http and https support
+    enableIncomingHttp: &mcoreEnableIncomingHttp true
+    enableIncomingHttps: &mcoreEnableIncomingHttps false
+    
+    ingressGwCertReloadEnabled: &mcoreIGwCertReloadEnabled false
+   
+  ###############################################################
+  #            Section Start  : cmservice attributes            #
+  ###############################################################
+  cmservice:
+    global:
+      # Possible values : IPv4, IPv6, IPv4_IPv6,IPv6_IPv4,ClusterPreferred
+      deploymentMode: *cnccDeploymentMode
+
+    envLoggingLevelApp: WARN
+    
+    image:
+      # image name
+      name: occncc/cncc-cmservice
+      # tag name of image
+      tag: 25.1.200
+      # Pull Policy - Possible Values are:- Always, IfNotPresent, Never    
+      pullPolicy: IfNotPresent
+
+    enablePodSecurityContext: *enablePodSecurityContext
+    podSecurityContext:
+      runAsNonRoot: *runAsNonRootPod
+      runAsUser: *runAsUserPod
+    enableContainerSecurityContext: *enableContainerSecurityContext
+    containerSecurityContext:
+      readOnlyRootFilesystem: false
+      allowPrivilegeEscalation: *allowPrivilegeEscalation
+      runAsNonRoot: *runAsNonRootContainer
+      privileged: *privileged
+      runAsUser: *runAsUser
+      capabilities: *capabilities
+      
+    # Persistence configuration
+    persistence:
+      # The database name, host and port
+      dbName: *mcoreMySqlDbRef
+      dbHost: *mySqlHostRef
+      dbPort: *mySqlPortRef
+      # Specify existing Secret to read db credentials from.
+      existingSecret: *mySqlSecretNameRef
+      existingSecretPasswordKey: dbPasswordKey  # read db password from existingSecret under this Key
+      existingSecretUsernameKey: dbUserNameKey  # read db user from existingSecret under this Key
+     
+    # Resource details
+    resources:
+      limits:
+        cpu: 2
+        memory: 2Gi
+        # Values will be taken from global section, no updates needed
+        logStorage: *containersLogStorageLimitsRef
+        crictlStorage: *containersCrictlStorageLimitsRef
+      requests:
+        cpu: 2
+        memory: 2Gi
+        # Values will be taken from global section, no updates needed
+        logStorage: *containersLogStorageRequestsRef
+        crictlStorage: *containersCrictlStorageRequestsRef
+  
+    # Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+    extraContainers: USE_GLOBAL_VALUE
+     
+    # Deployment details   
+    deployment:
+      customExtension:
+        labels: {}
+        annotations: {}
+      
+      # This is the name of product which appears as brand name and can be used to mention site name as well.
+      # envSystemName: CNCC - Site Name 
+      envSystemName: CNCC
+      # This is the version of product which appears with brand name.
+      envNFVersion: 25.1.200
+      # This is the name of the Project that appears on the Window
+      cmWindowName: CNCC
+
+      nodeSelector:
+        nodeKey: ""
+        nodeValue: ""
+      
+      livenessProbe:
+        initialDelaySeconds: 60
+        periodSeconds: 3
+        timeoutSeconds: 15
+        successThreshold: 1
+        failureThreshold: 3
+      readinessProbe:
+        initialDelaySeconds: 20
+        timeoutSeconds: 3
+        periodSeconds: 10
+        successThreshold: 1
+        failureThreshold: 3
+      startupProbe:
+        initialDelaySeconds: 60
+        timeoutSeconds: 3
+        periodSeconds: 15
+        successThreshold: 1
+        failureThreshold: 3
+  
+      dependenciesLogging:
+        - name: logging.level.org.springframework
+          value: WARN
+        - name: logging.level.io.undertow
+          value: WARN
+  
+    service:
+      customExtension:
+        labels: {}
+        annotations: {}
+      type: ClusterIP
+  
+    servicePorts:
+      cmServiceHttp: *svcCmServiceHttp
+    containerPorts:
+      monitoringHttp: 9000
+      cmServiceHttp: 8442
+  
+  #########################################################
+  #            Section End  : cmservice attributes        #
+  #########################################################
+  
+  ###############################################################
+  #         Section Start  : ingress gateway attributes         #
+  ###############################################################
+  ingress-gateway:
+    global:
+      # Possible values : IPv4, IPv6, IPv4_IPv6,IPv6_IPv4,ClusterPreferred
+      deploymentMode: *cnccDeploymentMode
+  
+    # Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+    extraContainers: USE_GLOBAL_VALUE
+  
+    # Metrics Instance Identifier to uniquely identify Manager CNCC Core metrics
+    prefix: 'mcore'
+    
+    image:
+      # Image name
+      name: occncc/cncc-apigateway
+      # Tag name of image
+      tag: 25.1.203
+      # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+      pullPolicy: IfNotPresent
+      
+    initContainersImage:
+      # Init Containers image name
+      name: occncc/apigw-configurationinit
+      # Tag name of init Container image
+      tag: 25.1.203
+      # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+      pullPolicy: IfNotPresent
+
+    clientDisabledExtension: *clientDisabledExtension
+    serverDisabledExtension: *serverDisabledExtension
+    tlsNamedGroups: *tlsNamedGroups
+    clientSignatureSchemes: *clientSignatureSchemes
+
+    service:
+      ssl:
+        tlsVersion: *tlsVersion
+        
+        privateKey:
+          k8SecretName: cncc-core-ingress-secret
+          k8NameSpace: cncc
+          rsa:
+            fileName: rsa_private_key_pkcs1.pem
+          ecdsa:
+            fileName: ssl_ecdsa_private_key.pem
+    
+        certificate:
+          k8SecretName: cncc-core-ingress-secret
+          k8NameSpace: cncc
+          rsa:
+            fileName: ssl_rsa_certificate.crt
+          ecdsa:
+            fileName: ssl_ecdsa_certificate.crt
+    
+        caBundle:
+          k8SecretName: cncc-core-ingress-secret
+          k8NameSpace: cncc
+          fileName: caroot.cer
+    
+        keyStorePassword:
+          k8SecretName: cncc-core-ingress-secret
+          k8NameSpace: cncc
+          fileName: ssl_keystore.txt
+    
+        trustStorePassword:
+          k8SecretName: cncc-core-ingress-secret
+          k8NameSpace: cncc
+          fileName: ssl_truststore.txt
+    
+        initialAlgorithm: RS256
+    
+      # Labels and Annotations that are specific to service ingressgateway are added here.
+      customExtension:
+        labels: {}
+        annotations: {}
+        # This annotation metallb.universe.tf/loadBalancerIPs: IP1,IP2 is required to assign static IPs for service with
+        # comma separated values, applicable for Dual stack support RequireDualStack IP Family policy
+        # metallb.universe.tf/loadBalancerIPs: ""
+    
+    # Labels and Annotations that are specific to deployment ingressgateway are added here.
+    deployment:
+      customExtension:
+        labels: {}
+        annotations: {}
+          #k8s.v1.cni.cncf.io/networks: ""
+          #oracle.com.cnc/cnlb: '[{"backendPortName": "mcncc-core-port", "cnlbIp": "","cnlbPort": ""}]'
+    
+    ports:
+      # ContainerPort represents a network port in a single container
+      containerPort: 8081
+      containerPortName: mcncc-core-port
+      containersslPort: 8443
+      containersslPortName: mcncc-core-port
+      actuatorPort: 9090
+    
+    # Set the root log level
+    log:
+      level: 
+        root: WARN
+        ingress: INFO
+        cncc:
+          root: WARN
+          audit: INFO
+          security: INFO
+    
+    readinessProbe:
+      # Tells the kubelet that it should wait second before performing the first probe
+      initialDelaySeconds: 30
+      # Number of seconds after which the probe times out
+      timeoutSeconds: 5
+      # specifies that the kubelet should perform a liveness probe every xx seconds
+      periodSeconds: 10
+      # Minimum consecutive successes for the probe to be considered successful after having failed
+      successThreshold: 1
+      # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+      failureThreshold: 3
+      
+    livenessProbe:
+      # Tells the kubelet that it should wait second before performing the first probe
+      initialDelaySeconds: 30
+      # Number of seconds after which the probe times out
+      timeoutSeconds: 5
+      # specifies that the kubelet should perform a liveness probe every xx seconds
+      periodSeconds: 15
+      # Minimum consecutive successes for the probe to be considered successful after having failed
+      successThreshold: 1
+      # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+      failureThreshold: 3
+    
+    # Resource details
+    resources:
+      limits:
+        cpu: 2
+        initServiceCpu: 1
+        commonHooksCpu: 1
+        memory: 2Gi
+        initServiceMemory: 1Gi
+        commonHooksMemory: 1Gi      
+      requests:
+        cpu: 2
+        initServiceCpu: 1
+        commonHooksCpu: 1
+        memory: 2Gi
+        initServiceMemory: 1Gi
+        commonHooksMemory: 1Gi
+      target:
+        averageCpuUtil: 80
+
+    cipherSuites: *cipherSuites
+
+
+    # To Initialize SSL related infrastructure in init/update container
+    initssl: *mcoreHttpsEnabled
+    # Server Configuration for http and https support
+    enableIncomingHttp: *mcoreEnableIncomingHttp
+    enableIncomingHttps: *mcoreEnableIncomingHttps
+    
+    ingressGwCertReloadEnabled: *mcoreIGwCertReloadEnabled
+  
+    nodeSelector:
+      nodeKey: ""
+      nodeValue: ""
+  
+    # Common Config Client Section
+    commonCfgClient:
+      enabled: true
+    commonCfgServer:
+      port: *svcCmServiceHttp
+    dbConfig:
+      dbHost: *mySqlHostRef
+      dbPort: *mySqlPortRef
+      secretName: *mySqlSecretNameRef
+      dbName: *mcoreMySqlDbRef
+      dbUNameLiteral: dbUserNameKey
+      dbPwdLiteral: dbPasswordKey
+    dbHookImage:
+      name: occncc/apigw-common-config-hook
+      tag: 25.1.203
+      pullPolicy: IfNotPresent
+  
+    # Pod SecurityContext
+    enablePodSecurityContext: *enablePodSecurityContext
+    podSecurityContext:
+      runAsNonRoot: *runAsNonRootPod
+      runAsUser: 10001
+  
+    #security context for containers
+    securityContext:
+      enable: *enableContainerSecurityContext
+
+    containerSecurityContext:
+      # make readOnlyRootFilesystem parameter false if environment needs more than readonly access
+      readOnlyRootFilesystem: *readOnlyRootFilesystem
+      allowPrivilegeEscalation: *allowPrivilegeEscalation
+      runAsNonRoot: *runAsNonRootContainer
+      privileged: *privileged
+      runAsUser: 10001
+      capabilities: *capabilities
+      
+    # CNCC configuration
+    cncc:
+      # Enable security logs for CNCC
+      securityLogEnabled: true
+      # Core Configuration
+      core:
+        # Session Timeout Value in Seconds. Default: 1800, Minimum: 300, Maximum: 7200 
+        sessionTimeout: 1800
+  #########################################################
+  #            Section End  : ingress gateway attributes  #
+  #########################################################
+#####################################################################
+#            Section End  : manager cncc core attributes            #
+#####################################################################
+
+#####################################################################
+#            Section Start  : agent cncc core attributes            #
+#####################################################################
+acncc-core:
+  global:
+    # If https is enabled, this Port would be HTTP/1.0 Port (unsecured)
+    # If https is disabled, this Port would be HTTPS/1.0 Port (secured SSL)
+    publicHttpSignalingPort: 80
+    publicHttpsSignalingPort: 443
+      
+    # If Static load balancer IP needs to be set, then set staticIpAddressEnabled flag to true and provide value for staticIpAddress
+    # Else random IP will be assigned by the metalLB from its IP Pool
+    staticIpAddressEnabled: false
+    staticIpAddress: ""
+    
+    # CNCC https enabled
+    httpsEnabled: &acoreHttpsEnabled false
+    # Server Configuration for http and https support
+    enableIncomingHttp: &acoreEnableIncomingHttp true
+    enableIncomingHttps: &acoreEnableIncomingHttps false
+    # Enables server with MTLS
+    needClientAuth: &needClientAuth false
+    
+    ingressGwCertReloadEnabled: &acoreIGwCertReloadEnabled false
+
+    # Ingress Gateway service type for acncc-core : Possible values are :- ClusterIP, LoadBalancer
+    # By default for single cluster deployment acncc-core is set as ClusterIP and for multi cluster default set as LoadBalancer
+    # Uncomment this to change the default acncc-core serviceType
+    #type: ClusterIP
+
+  ###############################################################
+  #         Section Start  : ingress gateway attributes         #
+  ###############################################################
+  ingress-gateway:
+    global:
+      # Possible values : IPv4, IPv6, IPv4_IPv6,IPv6_IPv4,ClusterPreferred
+      deploymentMode: *cnccDeploymentMode
+  
+    # Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+    extraContainers: USE_GLOBAL_VALUE
+  
+    # Metrics Instance Identifier to uniquely identify Agent CNCC Core metrics
+    prefix: 'acore'
+    
+    image:
+      # Image name
+      name: occncc/cncc-apigateway
+      # Tag name of image
+      tag: 25.1.203
+      # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+      pullPolicy: IfNotPresent
+      
+    initContainersImage:
+      # Init Containers image name
+      name: occncc/apigw-configurationinit
+      # Tag name of init Container image
+      tag: 25.1.203
+      # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+      pullPolicy: IfNotPresent
+
+    clientDisabledExtension: *clientDisabledExtension
+    serverDisabledExtension: *serverDisabledExtension
+    tlsNamedGroups: *tlsNamedGroups
+    clientSignatureSchemes: *clientSignatureSchemes
+
+    service:
+      ssl:
+        tlsVersion: *tlsVersion
+        
+        privateKey:
+          k8SecretName: cncc-core-ingress-secret
+          k8NameSpace: cncc
+          rsa:
+            fileName: rsa_private_key_pkcs1.pem
+          ecdsa:
+            fileName: ssl_ecdsa_private_key.pem
+    
+        certificate:
+          k8SecretName: cncc-core-ingress-secret
+          k8NameSpace: cncc
+          rsa:
+            fileName: ssl_rsa_certificate.crt
+          ecdsa:
+            fileName: ssl_ecdsa_certificate.crt
+    
+        caBundle:
+          k8SecretName: cncc-core-ingress-secret
+          k8NameSpace: cncc
+          fileName: caroot.cer
+    
+        keyStorePassword:
+          k8SecretName: cncc-core-ingress-secret
+          k8NameSpace: cncc
+          fileName: ssl_keystore.txt
+    
+        trustStorePassword:
+          k8SecretName: cncc-core-ingress-secret
+          k8NameSpace: cncc
+          fileName: ssl_truststore.txt
+    
+        initialAlgorithm: RS256
+    
+      # Labels and Annotations that are specific to service ingressgateway are added here.
+      customExtension:
+        labels: {}
+        annotations: {}
+        # This annotation metallb.universe.tf/loadBalancerIPs: IP1,IP2 is required to assign static IPs for service with
+        # comma separated values, applicable for Dual stack support RequireDualStack IP Family policy
+        # metallb.universe.tf/loadBalancerIPs: ""
+    
+    # Labels and Annotations that are specific to deployment ingressgateway are added here.
+    deployment:
+      customExtension:
+        labels: {}
+        annotations: {}
+          #k8s.v1.cni.cncf.io/networks: ""
+          #oracle.com.cnc/cnlb: '[{"backendPortName": "acncc-core-port", "cnlbIp": "","cnlbPort": ""}]'
+    
+    ports:
+      # ContainerPort represents a network port in a single container
+      containerPort: 8081
+      containerPortName: acncc-core-port
+      containersslPort: 8443
+      containersslPortName: acncc-core-port
+      actuatorPort: 9090
+    
+    # Set the root log level
+    log:
+      level: 
+        root: WARN
+        ingress: INFO
+        cncc:
+          root: WARN
+          audit: INFO
+          security: INFO
+    
+    readinessProbe:
+      # Tells the kubelet that it should wait second before performing the first probe
+      initialDelaySeconds: 30
+      # Number of seconds after which the probe times out
+      timeoutSeconds: 5
+      # specifies that the kubelet should perform a liveness probe every xx seconds
+      periodSeconds: 10
+      # Minimum consecutive successes for the probe to be considered successful after having failed
+      successThreshold: 1
+      # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+      failureThreshold: 3
+      
+    livenessProbe:
+      # Tells the kubelet that it should wait second before performing the first probe
+      initialDelaySeconds: 30
+      # Number of seconds after which the probe times out
+      timeoutSeconds: 5
+      # specifies that the kubelet should perform a liveness probe every xx seconds
+      periodSeconds: 15
+      # Minimum consecutive successes for the probe to be considered successful after having failed
+      successThreshold: 1
+      # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+      failureThreshold: 3
+    
+    # Resource details
+    resources:
+      limits:
+        cpu: 2
+        initServiceCpu: 1
+        commonHooksCpu: 1
+        memory: 2Gi
+        initServiceMemory: 1Gi
+        commonHooksMemory: 1Gi      
+      requests:
+        cpu: 2
+        initServiceCpu: 1
+        commonHooksCpu: 1
+        memory: 2Gi
+        initServiceMemory: 1Gi
+        commonHooksMemory: 1Gi
+      target:
+        averageCpuUtil: 80
+
+    cipherSuites: *cipherSuites
+
+
+    # To Initialize SSL related infrastructure in init/update container
+    initssl: *acoreHttpsEnabled
+    # Server Configuration for http and https support
+    enableIncomingHttp: *acoreEnableIncomingHttp
+    enableIncomingHttps: *acoreEnableIncomingHttps
+    needClientAuth: *needClientAuth
+    
+    ingressGwCertReloadEnabled: *acoreIGwCertReloadEnabled
+  
+    nodeSelector:
+      nodeKey: ""
+      nodeValue: ""
+
+    # Pod SecurityContext
+    enablePodSecurityContext: *enablePodSecurityContext
+    podSecurityContext:
+      runAsNonRoot: *runAsNonRootPod
+      runAsUser: 10001
+    
+    #security context for containers
+    securityContext:
+      enable: *enableContainerSecurityContext
+    
+    containerSecurityContext:
+      # make readOnlyRootFilesystem parameter false if environment needs more than readonly access
+      readOnlyRootFilesystem: *readOnlyRootFilesystem
+      allowPrivilegeEscalation: *allowPrivilegeEscalation
+      runAsNonRoot: *runAsNonRootContainer
+      privileged: *privileged
+      runAsUser: 10001
+      capabilities: *capabilities
+    
+    # CNCC configuration
+    cncc:
+      # Enable security logs for CNCC
+      securityLogEnabled: true
+      # Core Configuration
+      core:
+        # Session Timeout Value in Seconds. Default: 1800, Minimum: 300, Maximum: 7200 
+        sessionTimeout: 1800
+  #########################################################
+  #            Section End  : ingress gateway attributes  #
+  #########################################################
+###################################################################
+#            Section End  : agent cncc core attributes            #
+###################################################################

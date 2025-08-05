@@ -1,27 +1,87 @@
 """YAML merging operations with configurable strategies."""
 
 import copy
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Dict, List, Optional, Set
 
 import yaml
 
+from config_manager import ConfigManager
 from exceptions import YamlSyntaxError
 
 
+class VersionDetector:
+    """Detects version numbers in YAML content."""
+    
+    def __init__(self, config_manager: ConfigManager):
+        self.config_manager = config_manager
+        # Pattern to match common version formats - more specific to avoid false positives
+        self.version_patterns = [
+            r'\b\d+\.\d+\.\d+\b',  # 25.1.100, 25.1.200, etc.
+            r'\bv\d+\.\d+\.\d+\b', # v25.1.100, etc.
+        ]
+        
+        # Additional context patterns to validate version numbers
+        self.version_context_patterns = [
+            r':\s*\d+\.\d+\.\d+\b',  # tag: 25.1.200
+            r'version.*\d+\.\d+\.\d+\b',  # version: 25.1.200
+            r'image.*\d+\.\d+\.\d+\b',  # image: ...:25.1.200
+        ]
+    
+    def extract_versions(self, data: Any) -> Set[str]:
+        """Extract all version numbers from YAML data."""
+        versions = set()
+        self._scan_for_versions(data, versions)
+        return versions
+    
+    def _scan_for_versions(self, data: Any, versions: Set[str]) -> None:
+        """Recursively scan data for version numbers."""
+        if isinstance(data, str):
+            # Check for version patterns in strings
+            for pattern in self.version_patterns:
+                matches = re.findall(pattern, data)
+                for match in matches:
+                    # Additional validation for context
+                    if self._is_valid_version_context(data, match):
+                        versions.add(match)
+        elif isinstance(data, dict):
+            for key, value in data.items():
+                # Check if this is a version-related field
+                if self._is_version_field(key, value):
+                    if isinstance(value, str):
+                        versions.add(value)
+                else:
+                    self._scan_for_versions(value, versions)
+        elif isinstance(data, list):
+            for item in data:
+                self._scan_for_versions(item, versions)
+    
+    def _is_version_field(self, key: str, value: Any) -> bool:
+        """Check if a field is version-related."""
+        version_patterns = self.config_manager.get_version_patterns_to_skip()
+        return key in version_patterns and isinstance(value, str)
+    
+    def _is_valid_version_context(self, text: str, version: str) -> bool:
+        """Validate if a version number appears in valid context."""
+        # Check if version appears in a valid context pattern
+        for pattern in self.version_context_patterns:
+            if re.search(pattern, text):
+                return True
+        return False
+
+
 class YamlMerger:
-    """Handles YAML file merging with configurable strategies."""
+    """Handles YAML merging operations with configurable strategies."""
 
-    def __init__(
-        self, list_merge_strategy: str = "replace", deletion_strategy: str = "ignore"
-    ) -> None:
-        """Initialize YAML merger with strategies.
-
+    def __init__(self, config_manager: ConfigManager):
+        """Initialize YAML merger with configuration manager.
+        
         Args:
-            list_merge_strategy: Strategy for merging lists ('replace', 'append', 'intelligent')
-            deletion_strategy: Strategy for handling deletions ('ignore', 'remove')
+            config_manager: Configuration manager instance
         """
-        self.list_merge_strategy = list_merge_strategy
-        self.deletion_strategy = deletion_strategy
+        self.config_manager = config_manager
+        self.version_detector = VersionDetector(config_manager)
+        self.v2_versions: Set[str] = set()
         self._changes: List[Dict[str, Any]] = []
 
     def load_yaml_file(self, file_path: str) -> Dict[str, Any]:
@@ -77,20 +137,47 @@ class YamlMerger:
         v1_data = self.load_yaml_file(file_v1_path)
         v2_data = self.load_yaml_file(file_v2_path)
 
+        # Extract all version numbers from v2 (template)
+        self.v2_versions = self.version_detector.extract_versions(v2_data)
+        print(f"Detected v2 versions: {sorted(self.v2_versions)}")
+
         self._changes = []
 
         merged_data = copy.deepcopy(v2_data)
         self._deep_merge(v1_data, merged_data, "")
 
-        if self.deletion_strategy == "remove":
+        if self.config_manager.get_deletion_strategy() == "remove":
             self._handle_deletions(v1_data, merged_data, "")
 
         return merged_data
 
+    def _should_skip_field(self, key: str, value: Any, path: str) -> bool:
+        """Determine if a field should be skipped to preserve v2 versions."""
+        
+        # Skip specific version-related fields based on config
+        if key in self.config_manager.get_version_patterns_to_skip():
+            return True
+        
+        # Skip if the value contains any v2 version numbers
+        if self._contains_v2_versions(value):
+            return True
+        
+        return False
+
+    def _contains_v2_versions(self, value: Any) -> bool:
+        """Check if value contains any v2 version numbers."""
+        if isinstance(value, str):
+            return any(version in value for version in self.v2_versions)
+        elif isinstance(value, (dict, list)):
+            # Recursively check nested structures
+            versions_in_value = self.version_detector.extract_versions(value)
+            return bool(versions_in_value.intersection(self.v2_versions))
+        return False
+
     def _deep_merge(
         self, source: Dict[str, Any], target: Dict[str, Any], path: str
     ) -> None:
-        """Recursively merge source into target.
+        """Recursively merge source into target with version preservation.
 
         Args:
             source: Source dictionary (v1_data)
@@ -99,6 +186,11 @@ class YamlMerger:
         """
         for key, value in source.items():
             current_path = f"{path}.{key}" if path else key
+            
+            # Skip if field contains v2 versions or is version-related
+            if self._should_skip_field(key, value, current_path):
+                print(f"Skipping {current_path} (contains v2 versions or is version-related)")
+                continue
 
             if key not in target:
                 target[key] = copy.deepcopy(value)
@@ -131,15 +223,15 @@ class YamlMerger:
         Returns:
             Merged list
         """
-        if self.list_merge_strategy == "replace":
+        if self.config_manager.get_list_merge_strategy() == "replace":
             return copy.deepcopy(source_list)
 
-        if self.list_merge_strategy == "append":
+        if self.config_manager.get_list_merge_strategy() == "append":
             merged_list = copy.deepcopy(target_list)
             merged_list.extend(copy.deepcopy(source_list))
             return merged_list
 
-        if self.list_merge_strategy == "intelligent":
+        if self.config_manager.get_list_merge_strategy() == "intelligent":
             return self._intelligent_merge_lists(source_list, target_list)
 
         return copy.deepcopy(source_list)

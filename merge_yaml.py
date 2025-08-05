@@ -3,6 +3,7 @@
 
 import argparse
 import sys
+from typing import Optional
 
 from config_manager import ConfigManager
 from diff_reporter import DiffReporter
@@ -16,9 +17,9 @@ class YamlMergeApplication:
 
     def __init__(self) -> None:
         """Initialize the application."""
-        self.config_manager: ConfigManager = None
-        self.yaml_merger: YamlMerger = None
-        self.diff_reporter: DiffReporter = None
+        self.config_manager: Optional[ConfigManager] = None
+        self.yaml_merger: Optional[YamlMerger] = None
+        self.diff_reporter: Optional[DiffReporter] = None
 
     def run(self, args: argparse.Namespace) -> int:
         """Run the YAML merge application.
@@ -57,10 +58,8 @@ class YamlMergeApplication:
 
         self._apply_cli_overrides(args)
 
-        self.yaml_merger = YamlMerger(
-            list_merge_strategy=self.config_manager.get_list_merge_strategy(),
-            deletion_strategy=self.config_manager.get_deletion_strategy(),
-        )
+        # Initialize YamlMerger with config manager
+        self.yaml_merger = YamlMerger(self.config_manager)
 
         self.diff_reporter = DiffReporter(
             show_unchanged=self.config_manager.show_unchanged_keys(),
@@ -73,6 +72,8 @@ class YamlMergeApplication:
         Args:
             args: Parsed command line arguments
         """
+        assert self.config_manager is not None
+        
         overrides = [
             ("list_merge_strategy", "general_settings.list_merge_strategy"),
             ("handle_deletions", "general_settings.handle_deletions"),
@@ -91,6 +92,7 @@ class YamlMergeApplication:
 
     def _validate_environment(self) -> None:
         """Validate the environment and file paths."""
+        assert self.config_manager is not None
         self.config_manager.validate_file_paths()
 
     def _perform_merge(self) -> dict:
@@ -99,17 +101,14 @@ class YamlMergeApplication:
         Returns:
             Merged YAML data
         """
-        print("Loading YAML files...")
-
-        file_v1_path = self.config_manager.get_file_v1_path()
-        file_v2_path = self.config_manager.get_file_v2_path()
+        assert self.config_manager is not None
+        assert self.yaml_merger is not None
+        
+        v1_path = self.config_manager.get_file_v1_path()
+        v2_path = self.config_manager.get_file_v2_path()
         output_path = self.config_manager.get_output_final_path()
 
-        print(f"Merging {file_v1_path} into {file_v2_path}...")
-
-        merged_data = self.yaml_merger.merge_yamls(file_v1_path, file_v2_path)
-
-        print(f"Saving merged result to {output_path}...")
+        merged_data = self.yaml_merger.merge_yamls(v1_path, v2_path)
         self.yaml_merger.save_yaml_file(merged_data, output_path)
 
         return merged_data
@@ -120,12 +119,15 @@ class YamlMergeApplication:
         """Generate difference reports.
 
         Args:
-            merged_data: The merged YAML data
+            merged_data: Merged YAML data
         """
+        assert self.yaml_merger is not None
+        assert self.diff_reporter is not None
+        assert self.config_manager is not None
+        
         changes = self.yaml_merger.get_changes()
         diff_path = self.config_manager.get_diff_report_path()
 
-        print(f"Generating difference report to {diff_path}...")
         self.diff_reporter.generate_report(changes, diff_path)
 
         summary = self.diff_reporter.get_changes_summary(changes)
