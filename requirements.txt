@@ -1,0 +1,25 @@
+# Core dependencies
+PyYAML>=6.0.1
+
+# Development and testing dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Code quality and formatting
+black>=23.7.0
+isort>=5.12.0
+pylint>=3.0.0
+
+# Pre-commit hooks
+pre-commit>=3.3.0
+
+# Build tools
+PyInstaller>=5.13.0
+
+# Security scanning
+bandit>=1.7.5
+
+# Shell script linting (system dependency)
+# Note: shellcheck should be installed system-wide
+# On macOS: brew install shellcheck
+# On Ubuntu/Debian: apt-get install shellcheck
